@@ -7,7 +7,7 @@ const GuildConfig = require('../models/GuildConfig');
 module.exports = (client) => {
   const app = express();
 
-  // CORREÇÃO: Permite que o Express confie no proxy reverso do Railway para manter os cookies de sessão ativos
+  // Permite que o Express confie no proxy reverso do Railway para manter os cookies de sessão ativos
   app.set('trust proxy', 1);
 
   const oauth = new DiscordOAuth2({
@@ -21,13 +21,13 @@ module.exports = (client) => {
   app.use(express.urlencoded({ extended: true }));
   app.use(express.json());
 
-  // Configuração aprimorada de Sessão para ambientes de produção (Railway)
+  // Configuração de Sessão para ambientes de produção (Railway)
   app.use(session({
     secret: process.env.SESSION_SECRET,
     resave: true,
     saveUninitialized: true,
     cookie: {
-      secure: false, // Definido como false para evitar bloqueios de cookies em testes locais e HTTP simples
+      secure: false, // Definido como false para evitar bloqueios de cookies em testes locais
       maxAge: 24 * 60 * 60 * 1000 // Mantém a sessão ativa por 24 horas
     }
   }));
@@ -77,7 +77,7 @@ module.exports = (client) => {
       // Filtra os servidores onde você possui permissão de Administrador ou é o Dono (owner)
       req.session.guilds = guilds.filter(g => g.owner || (BigInt(g.permissions) & 8n) === 8n);
       
-      // CORREÇÃO: Força a gravação física da sessão antes de redirecionar para evitar o loop de login
+      // Força a gravação física da sessão antes de redirecionar para evitar o loop de login
       req.session.save((err) => {
         if (err) console.error('[ERRO SESSÃO] Erro ao gravar dados de login:', err);
         res.redirect('/dashboard');
@@ -112,27 +112,37 @@ module.exports = (client) => {
     
     if (!userGuild) return res.redirect('/dashboard');
 
-    let config = await GuildConfig.findOne({ guildId });
-    if (!config) {
-      config = await GuildConfig.create({ guildId });
+    // CORREÇÃO: Se o bot NÃO estiver no servidor, redireciona para a página de convite do Discord do Bot
+    // parametrizado para este servidor específico, evitando carregar páginas vazias.
+    const discordGuild = client.guilds.cache.get(guildId);
+    if (!discordGuild) {
+      return res.redirect(`https://discord.com/oauth2/authorize?client_id=${process.env.CLIENT_ID}&permissions=8&scope=bot%20applications.commands&guild_id=${guildId}`);
     }
 
-    const discordGuild = client.guilds.cache.get(guildId);
-    const channels = discordGuild 
-      ? discordGuild.channels.cache.filter(c => c.type === 0 || c.type === 4).map(c => ({ id: c.id, name: c.name, type: c.type })) 
-      : [];
-    const roles = discordGuild 
-      ? discordGuild.roles.cache.map(r => ({ id: r.id, name: r.name })) 
-      : [];
+    try {
+      let config = await GuildConfig.findOne({ guildId });
+      if (!config) {
+        config = await GuildConfig.create({ guildId });
+      }
 
-    res.render('guild', { 
-      user: req.session.user, 
-      guild: userGuild, 
-      config,
-      channels,
-      roles,
-      query: req.query
-    });
+      const channels = discordGuild.channels.cache
+        .filter(c => c.type === 0 || c.type === 4)
+        .map(c => ({ id: c.id, name: c.name, type: c.type }));
+        
+      const roles = discordGuild.roles.cache.map(r => ({ id: r.id, name: r.name }));
+
+      res.render('guild', { 
+        user: req.session.user, 
+        guild: userGuild, 
+        config,
+        channels,
+        roles,
+        query: req.query
+      });
+    } catch (dbError) {
+      console.error('[ERRO BANCO NO DASHBOARD]', dbError);
+      res.status(500).send('Erro de comunicação com o banco de dados. Verifique se o seu MongoDB no Railway está ativo e conectado.');
+    }
   });
 
   // Salvar alterações enviadas do painel administrativo
@@ -143,21 +153,26 @@ module.exports = (client) => {
 
     const { staffRoleId, logChannelId, transcriptChannelId, ticketCategory, title, description, color } = req.body;
 
-    await GuildConfig.findOneAndUpdate(
-      { guildId },
-      {
-        staffRoleId,
-        logChannelId,
-        transcriptChannelId,
-        ticketCategory,
-        'panelEmbed.title': title,
-        'panelEmbed.description': description,
-        'panelEmbed.color': color
-      },
-      { upsert: true }
-    );
+    try {
+      await GuildConfig.findOneAndUpdate(
+        { guildId },
+        {
+          staffRoleId,
+          logChannelId,
+          transcriptChannelId,
+          ticketCategory,
+          'panelEmbed.title': title,
+          'panelEmbed.description': description,
+          'panelEmbed.color': color
+        },
+        { upsert: true }
+      );
 
-    res.redirect(`/dashboard/${guildId}?success=true`);
+      res.redirect(`/dashboard/${guildId}?success=true`);
+    } catch (dbError) {
+      console.error('[ERRO AO SALVAR CONFIGS]', dbError);
+      res.status(500).send('Erro ao salvar as configurações. O banco de dados pode estar indisponível.');
+    }
   });
 
   const PORT = process.env.PORT || 3000;
