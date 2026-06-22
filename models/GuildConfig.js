@@ -2,18 +2,18 @@ const mongoose = require('mongoose');
 
 const GuildConfigSchema = new mongoose.Schema({
   guildId: { type: String, required: true, unique: true },
-  staffRoleId: { type: String, default: null },
+  staffRoleIds: { type: [String], default: [] }, // Suporta múltiplos cargos simultaneamente
   logChannelId: { type: String, default: null },
   transcriptChannelId: { type: String, default: null },
   ticketCategory: { type: String, default: null },
   maxTickets: { type: Number, default: 3 },
-  autoCloseHours: { type: Number, default: 48 }, // Fecha se inativo
+  active: { type: Boolean, default: true }, // Permite desativar temporariamente o sistema
   panelEmbed: {
     title: { type: String, default: '📩 Central de Suporte' },
     description: { type: String, default: 'Clique no menu de seleção abaixo para abrir um ticket de suporte.' },
     color: { type: String, default: '#5865F2' },
-    thumbnail: { type: String, default: '' },
-    image: { type: String, default: '' }
+    thumbnail: { type: String, default: '' }, // URL da imagem pequena
+    image: { type: String, default: '' } // URL do banner principal
   },
   categories: {
     type: Array,
