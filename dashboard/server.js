@@ -112,8 +112,7 @@ module.exports = (client) => {
     
     if (!userGuild) return res.redirect('/dashboard');
 
-    // CORREÇÃO: Se o bot NÃO estiver no servidor, redireciona para a página de convite do Discord do Bot
-    // parametrizado para este servidor específico, evitando carregar páginas vazias.
+    // Se o bot NÃO estiver no servidor, redireciona para a página de convite do Discord do Bot
     const discordGuild = client.guilds.cache.get(guildId);
     if (!discordGuild) {
       return res.redirect(`https://discord.com/oauth2/authorize?client_id=${process.env.CLIENT_ID}&permissions=8&scope=bot%20applications.commands&guild_id=${guildId}`);
@@ -151,19 +150,27 @@ module.exports = (client) => {
     const userGuild = req.session.guilds.find(g => g.id === guildId);
     if (!userGuild) return res.sendStatus(403);
 
-    const { staffRoleId, logChannelId, transcriptChannelId, ticketCategory, title, description, color } = req.body;
+    const { staffRoleIds, logChannelId, transcriptChannelId, ticketCategory, title, description, color, thumbnail, image, active } = req.body;
+
+    // Garante que o staffRoleIds seja processado corretamente como um Array de strings (mesmo que apenas uma ou nenhuma opção tenha sido marcada)
+    const rolesArray = Array.isArray(staffRoleIds) 
+      ? staffRoleIds 
+      : (staffRoleIds ? [staffRoleIds] : []);
 
     try {
       await GuildConfig.findOneAndUpdate(
         { guildId },
         {
-          staffRoleId,
+          staffRoleIds: rolesArray,
           logChannelId,
           transcriptChannelId,
           ticketCategory,
+          active: active === 'true',
           'panelEmbed.title': title,
           'panelEmbed.description': description,
-          'panelEmbed.color': color
+          'panelEmbed.color': color,
+          'panelEmbed.thumbnail': thumbnail,
+          'panelEmbed.image': image
         },
         { upsert: true }
       );
