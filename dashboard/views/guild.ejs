@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <title>Krypton | Configurando <%= guild.name %></title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-slate-900 text-white p-8">
+  <div class="max-w-5xl mx-auto">
+    <div class="flex items-center gap-4 mb-8">
+      <a href="/dashboard" class="text-slate-400 hover:text-white">&larr; Voltar para servidores</a>
+      <h1 class="text-3xl font-extrabold">Configurações de <%= guild.name %></h1>
+    </div>
+
+    <form action="/dashboard/<%= guild.id %>/save" method="POST" class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+      <!-- Painel de Configurações Técnicas -->
+      <div class="bg-slate-800 p-6 rounded-xl border border-slate-700 space-y-6">
+        <h2 class="text-xl font-bold border-b border-slate-700 pb-2">Configurações do Discord</h2>
+        
+        <div>
+          <label class="block text-sm font-semibold mb-2">Cargo de Suporte (Staff)</label>
+          <select name="staffRoleId" class="w-full bg-slate-700 p-3 rounded border border-slate-600">
+            <option value="">Sem Cargo Definido</option>
+            <% roles.forEach(role => { %>
+              <option value="<%= role.id %>" <%= config.staffRoleId === role.id ? 'selected' : '' %>><%= role.name %></option>
+            <% }) %>
+          </select>
+        </div>
+
+        <div>
+          <label class="block text-sm font-semibold mb-2">Canal para Registro de Logs</label>
+          <select name="logChannelId" class="w-full bg-slate-700 p-3 rounded border border-slate-600">
+            <option value="">Sem Canal Definido</option>
+            <% channels.filter(c => c.type === 0).forEach(ch => { %>
+              <option value="<%= ch.id %>" <%= config.logChannelId === ch.id ? 'selected' : '' %>>#<%= ch.name %></option>
+            <% }) %>
+          </select>
+        </div>
+
+        <div>
+          <label class="block text-sm font-semibold mb-2">Canal para Salvar Históricos (Transcripts)</label>
+          <select name="transcriptChannelId" class="w-full bg-slate-700 p-3 rounded border border-slate-600">
+            <option value="">Sem Canal Definido</option>
+            <% channels.filter(c => c.type === 0).forEach(ch => { %>
+              <option value="<%= ch.id %>" <%= config.transcriptChannelId === ch.id ? 'selected' : '' %>>#<%= ch.name %></option>
+            <% }) %>
+          </select>
+        </div>
+
+        <div>
+          <label class="block text-sm font-semibold mb-2">Categoria para Abertura de Novos Tickets</label>
+          <select name="ticketCategory" class="w-full bg-slate-700 p-3 rounded border border-slate-600">
+            <option value="">Sem Categoria Definida (Criará solto)</option>
+            <% channels.filter(c => c.type === 4).forEach(ch => { %>
+              <option value="<%= ch.id %>" <%= config.ticketCategory === ch.id ? 'selected' : '' %>><%= ch.name %></option>
+            <% }) %>
+          </select>
+        </div>
+      </div>
+
+      <!-- Customização Visual da Embed (Com Preview em Tempo Real) -->
+      <div class="bg-slate-800 p-6 rounded-xl border border-slate-700 space-y-6 flex flex-col justify-between">
+        <div>
+          <h2 class="text-xl font-bold border-b border-slate-700 pb-2 mb-4">Design do Painel de Suporte</h2>
+          
+          <div class="space-y-4">
+            <div>
+              <label class="block text-sm font-semibold mb-1">Título da Embed</label>
+              <input type="text" id="titleInput" name="title" value="<%= config.panelEmbed.title %>" class="w-full bg-slate-700 p-3 rounded border border-slate-600" />
+            </div>
+            <div>
+              <label class="block text-sm font-semibold mb-1">Descrição</label>
+              <textarea id="descInput" name="description" rows="3" class="w-full bg-slate-700 p-3 rounded border border-slate-600"><%= config.panelEmbed.description %></textarea>
+            </div>
+            <div>
+              <label class="block text-sm font-semibold mb-1">Cor Hexadecimal</label>
+              <input type="color" id="colorInput" name="color" value="<%= config.panelEmbed.color %>" class="w-16 h-10 bg-transparent cursor-pointer" />
+            </div>
+          </div>
+        </div>
+
+        <!-- Painel de Preview Visual (Estilo Discord) -->
+        <div class="mt-6">
+          <h3 class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Visualização em Tempo Real (Embed do Discord)</h3>
+          <div id="previewCard" class="bg-slate-950 p-4 rounded-lg border-l-4 border-violet-500">
+            <h4 id="previewTitle" class="font-bold text-white text-lg"><%= config.panelEmbed.title %></h4>
+            <p id="previewDesc" class="text-sm text-slate-300 mt-1"><%= config.panelEmbed.description %></p>
+          </div>
+        </div>
+
+        <button type="submit" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3 px-4 rounded-lg transition mt-4">Salvar Configurações</button>
+      </div>
+    </form>
+  </div>
+
+  <script>
+    const titleInput = document.getElementById('titleInput');
+    const descInput = document.getElementById('descInput');
+    const colorInput = document.getElementById('colorInput');
+    
+    const previewTitle = document.getElementById('previewTitle');
+    const previewDesc = document.getElementById('previewDesc');
+    const previewCard = document.getElementById('previewCard');
+
+    function updatePreview() {
+      previewTitle.innerText = titleInput.value || 'Sem título';
+      previewDesc.innerText = descInput.value || 'Sem descrição';
+      previewCard.style.borderColor = colorInput.value;
+    }
+
+    titleInput.addEventListener('input', updatePreview);
+    descInput.addEventListener('input', updatePreview);
+    colorInput.addEventListener('input', updatePreview);
+    updatePreview();
+  </script>
+</body>
+</html>
