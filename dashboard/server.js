@@ -6,6 +6,10 @@ const GuildConfig = require('../models/GuildConfig');
 
 module.exports = (client) => {
   const app = express();
+
+  // CORREÇÃO: Permite que o Express confie no proxy reverso do Railway para manter os cookies de sessão ativos
+  app.set('trust proxy', 1);
+
   const oauth = new DiscordOAuth2({
     clientId: process.env.CLIENT_ID,
     clientSecret: process.env.CLIENT_SECRET,
@@ -17,15 +21,22 @@ module.exports = (client) => {
   app.use(express.urlencoded({ extended: true }));
   app.use(express.json());
 
+  // Configuração aprimorada de Sessão para ambientes de produção (Railway)
   app.use(session({
     secret: process.env.SESSION_SECRET,
-    resave: false,
-    saveUninitialized: false
+    resave: true,
+    saveUninitialized: true,
+    cookie: {
+      secure: false, // Definido como false para evitar bloqueios de cookies em testes locais e HTTP simples
+      maxAge: 24 * 60 * 60 * 1000 // Mantém a sessão ativa por 24 horas
+    }
   }));
 
   // Middleware para verificar autenticação
   function checkAuth(req, res, next) {
-    if (req.session.user) return next();
+    if (req.session && req.session.user) {
+      return next();
+    }
     res.redirect('/');
   }
 
@@ -63,21 +74,27 @@ module.exports = (client) => {
 
       req.session.user = user;
       
-      // CORREÇÃO: Converte permissões para BigInt para evitar estouro de 32-bits da API do Discord.
-      // Também valida se o usuário é o Dono do servidor (owner).
+      // Filtra os servidores onde você possui permissão de Administrador ou é o Dono (owner)
       req.session.guilds = guilds.filter(g => g.owner || (BigInt(g.permissions) & 8n) === 8n);
       
-      res.redirect('/dashboard');
+      // CORREÇÃO: Força a gravação física da sessão antes de redirecionar para evitar o loop de login
+      req.session.save((err) => {
+        if (err) console.error('[ERRO SESSÃO] Erro ao gravar dados de login:', err);
+        res.redirect('/dashboard');
+      });
+
     } catch (err) {
-      console.error(err);
+      console.error('[ERRO OAUTH] Erro na autenticação com o Discord:', err);
       res.redirect('/');
     }
   });
 
   // Rota de Logout
   app.get('/auth/logout', (req, res) => {
-    req.session.destroy();
-    res.redirect('/');
+    req.session.destroy((err) => {
+      if (err) console.error('[ERRO LOGOUT] Falha ao destruir sessão:', err);
+      res.redirect('/');
+    });
   });
 
   // Painel de Controle - Lista de servidores administrados
@@ -92,6 +109,7 @@ module.exports = (client) => {
   app.get('/dashboard/:guildId', checkAuth, async (req, res) => {
     const { guildId } = req.params;
     const userGuild = req.session.guilds.find(g => g.id === guildId);
+    
     if (!userGuild) return res.redirect('/dashboard');
 
     let config = await GuildConfig.findOne({ guildId });
