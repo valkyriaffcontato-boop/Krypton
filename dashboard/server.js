@@ -34,9 +34,9 @@ module.exports = (client) => {
     res.render('index', { user: req.session.user || null });
   });
 
-  // Login via OAuth2 Discord
+  // Login via OAuth2 Discord - Corrigido para generateAuthUrl
   app.get('/auth/login', (req, res) => {
-    const url = oauth.tokenRequestUrl({
+    const url = oauth.generateAuthUrl({
       scope: ['identify', 'guilds'],
       state: 'krypton_secret_state'
     });
