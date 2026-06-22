@@ -28,8 +28,6 @@ module.exports = {
         await command.execute(interaction);
       } catch (error) {
         console.error('[ERRO COMANDO]', error);
-        
-        // CORREÇÃO: Se o comando já foi adiado (deferred), editamos a resposta ao invés de enviar um novo reply
         const errMessage = 'Ocorreu um erro interno ao processar este comando. Verifique se o banco de dados está online.';
         if (interaction.deferred || interaction.replied) {
           await interaction.editReply({ content: errMessage }).catch(() => null);
@@ -54,6 +52,11 @@ module.exports = {
         const config = await GuildConfig.findOne({ guildId: guild.id });
         if (!config) return interaction.editReply({ content: 'As configurações deste servidor não foram salvas.' });
 
+        // VERIFICAÇÃO: Verifica se o sistema de tickets está ativado globalmente
+        if (config.active === false) {
+          return interaction.editReply({ content: 'O sistema de tickets está temporariamente desativado pela administração.' });
+        }
+
         // Verificação de limite máximo de tickets ativos
         const activeTickets = await Ticket.countDocuments({ guildId: guild.id, userId: user.id, status: 'open' });
         if (activeTickets >= (config.maxTickets || 3)) {
@@ -70,8 +73,11 @@ module.exports = {
           { id: user.id, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.EmbedLinks, PermissionFlagsBits.ReadMessageHistory] }
         ];
 
-        if (config.staffRoleId) {
-          overwrites.push({ id: config.staffRoleId, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.ReadMessageHistory] });
+        // CORREÇÃO: Concede permissão de leitura a múltiplos cargos de Staff adicionados
+        if (config.staffRoleIds && config.staffRoleIds.length > 0) {
+          config.staffRoleIds.forEach(roleId => {
+            overwrites.push({ id: roleId, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.ReadMessageHistory] });
+          });
         }
 
         const ticketChannel = await guild.channels.create({
@@ -130,6 +136,83 @@ module.exports = {
       }
     }
 
+    // --- INTERAÇÃO DO BOTÃO "CONFIGURAR PAINEL" (STAFF NO DISCORD) ---
+    if (interaction.isButton() && interaction.customId === 'discord_config_panel') {
+      if (!member.permissions.has(PermissionFlagsBits.Administrator)) {
+        return interaction.reply({ content: 'Apenas administradores do servidor podem usar esta configuração.', ephemeral: true });
+      }
+
+      const config = await GuildConfig.findOne({ guildId: guild.id });
+      if (!config) return interaction.reply({ content: 'Configurações de servidor não encontradas.', ephemeral: true });
+
+      const modal = new ModalBuilder()
+        .setCustomId('modal_discord_config')
+        .setTitle('⚙️ Configuração Rápida do Painel');
+
+      const titleInput = new TextInputBuilder()
+        .setCustomId('modal_panel_title')
+        .setLabel('Título da Janela')
+        .setValue(config.panelEmbed.title)
+        .setStyle(TextInputStyle.Short)
+        .setRequired(true);
+
+      const descInput = new TextInputBuilder()
+        .setCustomId('modal_panel_desc')
+        .setLabel('Mensagem / Descrição')
+        .setValue(config.panelEmbed.description)
+        .setStyle(TextInputStyle.Paragraph)
+        .setRequired(true);
+
+      const thumbInput = new TextInputBuilder()
+        .setCustomId('modal_panel_thumb')
+        .setLabel('URL da Imagem de Miniatura (Opcional)')
+        .setValue(config.panelEmbed.thumbnail || '')
+        .setStyle(TextInputStyle.Short)
+        .setRequired(false);
+
+      const imgInput = new TextInputBuilder()
+        .setCustomId('modal_panel_img')
+        .setLabel('URL da Imagem de Banner (Opcional)')
+        .setValue(config.panelEmbed.image || '')
+        .setStyle(TextInputStyle.Short)
+        .setRequired(false);
+
+      modal.addComponents(
+        new ActionRowBuilder().addComponents(titleInput),
+        new ActionRowBuilder().addComponents(descInput),
+        new ActionRowBuilder().addComponents(thumbInput),
+        new ActionRowBuilder().addComponents(imgInput)
+      );
+
+      await interaction.showModal(modal);
+      return;
+    }
+
+    // --- ENVIO DO FORMULÁRIO DO MODAL DE CONFIGURAÇÃO (DISCORD) ---
+    if (interaction.isModalSubmit() && interaction.customId === 'modal_discord_config') {
+      await interaction.deferReply({ ephemeral: true });
+      const title = interaction.fields.getTextInputValue('modal_panel_title');
+      const description = interaction.fields.getTextInputValue('modal_panel_desc');
+      const thumbnail = interaction.fields.getTextInputValue('modal_panel_thumb');
+      const image = interaction.fields.getTextInputValue('modal_panel_img');
+
+      try {
+        await GuildConfig.findOneAndUpdate(
+          { guildId: guild.id },
+          {
+            'panelEmbed.title': title,
+            'panelEmbed.description': description,
+            'panelEmbed.thumbnail': thumbnail,
+            'panelEmbed.image': image
+          }
+        );
+        return interaction.editReply({ content: 'Painel reconfigurado com sucesso! Envie novamente o painel com o comando `/painel` para carregar as alterações no canal público.' });
+      } catch (err) {
+        console.error(err);
+        return interaction.editReply({ content: 'Erro ao gravar as novas configurações rápidas no banco de dados.' });
+      }
+    }
+
     // --- INTERAÇÕES DOS BOTÕES DENTRO DO TICKET ---
     if (interaction.isButton()) {
       try {
@@ -141,7 +224,8 @@ module.exports = {
 
         if (!ticketData || !config) return;
 
-        const isStaff = config.staffRoleId && member.roles.cache.has(config.staffRoleId);
+        // Validação se o usuário possui algum dos cargos de staff configurados
+        const isStaff = config.staffRoleIds && config.staffRoleIds.some(roleId => member.roles.cache.has(roleId));
         const isTicketOwner = ticketData.userId === user.id;
 
         if (!isStaff && !isTicketOwner) {
@@ -156,8 +240,13 @@ module.exports = {
           ticketData.status = 'claimed';
           await ticketData.save();
 
-          await channel.permissionOverwrites.edit(config.staffRoleId, { SendMessages: false });
-          await channel.permissionOverwrites.edit(user.id, { SendMessages: true });
+          // Bloqueia permissão de envio do cargo genérico e permite para quem reivindicou individualmente
+          if (config.staffRoleIds) {
+            config.staffRoleIds.forEach(async (roleId) => {
+              await channel.permissionOverwrites.edit(roleId, { SendMessages: false }).catch(() => null);
+            });
+          }
+          await channel.permissionOverwrites.edit(user.id, { ViewChannel: true, SendMessages: true });
 
           await channel.send({ content: `Este ticket foi oficialmente reivindicado por ${user}.` });
           return interaction.deferUpdate();
@@ -238,7 +327,7 @@ module.exports = {
       }
     }
 
-    // --- ENVIO DOS MODAIS (ADICIONAR/REMOVER MEMBROS) ---
+    // --- ENVIO DOS MODAIS DE CONTROLE DE MEMBROS ---
     if (interaction.isModalSubmit()) {
       try {
         const targetUserId = interaction.fields.getTextInputValue('target_user_id');
