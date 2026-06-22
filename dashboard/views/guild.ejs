@@ -30,7 +30,7 @@
     <!-- Alerta de Sucesso -->
     <% if (typeof query !== 'undefined' && query.success) { %>
       <div class="bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 px-4 py-3 rounded-xl mb-6 text-sm">
-        Configurações salvas com sucesso no banco de dados!
+        Configurações salvas com sucesso no banco de dados e sincronizadas no Discord em tempo real!
       </div>
     <% } %>
 
@@ -79,7 +79,7 @@
           </div>
         </div>
 
-        <!-- Bloco 2: Status do Sistema & Cargos Administrativos -->
+        <!-- Bloco 2: Status do Sistema & Cargos Staff -->
         <div class="bg-slate-900/60 p-6 rounded-2xl border border-slate-800/80 space-y-5">
           <h2 class="text-lg font-bold border-b border-slate-800 pb-3 flex items-center gap-2">
             🛡️ Ativação & Equipe de Atendimento
@@ -108,10 +108,76 @@
           </div>
         </div>
 
-        <!-- Bloco 3: Textos & Imagens do Painel -->
+        <!-- NOVO: Bloco para Personalizar as Três Categorias de Suporte -->
         <div class="bg-slate-900/60 p-6 rounded-2xl border border-slate-800/80 space-y-5">
           <h2 class="text-lg font-bold border-b border-slate-800 pb-3 flex items-center gap-2">
-            ✍️ Conteúdo & Imagens do Painel
+            🏷️ Editar Categorias de Suporte
+          </h2>
+          
+          <div class="space-y-6">
+            <!-- Categoria 1 -->
+            <div class="p-4 bg-slate-950/40 rounded-xl border border-slate-800/60 space-y-3">
+              <h3 class="text-sm font-bold text-violet-400">Categoria 1 (Padrão: Suporte Geral)</h3>
+              <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+                <div class="md:col-span-2">
+                  <label class="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">Nome</label>
+                  <input type="text" name="cat1Label" value="<%= config.categories[0] ? config.categories[0].label : 'Suporte Geral' %>" class="w-full bg-slate-950 p-2.5 rounded-lg border border-slate-800 text-xs text-slate-200 outline-none" required />
+                </div>
+                <div>
+                  <label class="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">Emoji</label>
+                  <input type="text" name="cat1Emoji" value="<%= config.categories[0] ? config.categories[0].emoji : '💬' %>" class="w-full bg-slate-950 p-2.5 rounded-lg border border-slate-800 text-xs text-slate-200 outline-none text-center" required />
+                </div>
+              </div>
+              <div>
+                <label class="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">Descrição</label>
+                <input type="text" name="cat1Desc" value="<%= config.categories[0] ? config.categories[0].description : 'Dúvidas e assistência básica' %>" class="w-full bg-slate-950 p-2.5 rounded-lg border border-slate-800 text-xs text-slate-200 outline-none" />
+              </div>
+            </div>
+
+            <!-- Categoria 2 -->
+            <div class="p-4 bg-slate-950/40 rounded-xl border border-slate-800/60 space-y-3">
+              <h3 class="text-sm font-bold text-violet-400">Categoria 2 (Padrão: Financeiro)</h3>
+              <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+                <div class="md:col-span-2">
+                  <label class="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">Nome</label>
+                  <input type="text" name="cat2Label" value="<%= config.categories[1] ? config.categories[1].label : 'Financeiro' %>" class="w-full bg-slate-950 p-2.5 rounded-lg border border-slate-800 text-xs text-slate-200 outline-none" required />
+                </div>
+                <div>
+                  <label class="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">Emoji</label>
+                  <input type="text" name="cat2Emoji" value="<%= config.categories[1] ? config.categories[1].emoji : '💳' %>" class="w-full bg-slate-950 p-2.5 rounded-lg border border-slate-800 text-xs text-slate-200 outline-none text-center" required />
+                </div>
+              </div>
+              <div>
+                <label class="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">Descrição</label>
+                <input type="text" name="cat2Desc" value="<%= config.categories[1] ? config.categories[1].description : 'Questões relacionadas a faturamento' %>" class="w-full bg-slate-950 p-2.5 rounded-lg border border-slate-800 text-xs text-slate-200 outline-none" />
+              </div>
+            </div>
+
+            <!-- Categoria 3 (Denúncias) -->
+            <div class="p-4 bg-slate-950/40 rounded-xl border border-slate-800/60 space-y-3">
+              <h3 class="text-sm font-bold text-violet-400">Categoria 3 (Padrão: Denúncias)</h3>
+              <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+                <div class="md:col-span-2">
+                  <label class="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">Nome</label>
+                  <input type="text" name="cat3Label" value="<%= config.categories[2] ? config.categories[2].label : 'Denúncias' %>" class="w-full bg-slate-950 p-2.5 rounded-lg border border-slate-800 text-xs text-slate-200 outline-none" required />
+                </div>
+                <div>
+                  <label class="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">Emoji</label>
+                  <input type="text" name="cat3Emoji" value="<%= config.categories[2] ? config.categories[2].emoji : '⚠️' %>" class="w-full bg-slate-950 p-2.5 rounded-lg border border-slate-800 text-xs text-slate-200 outline-none text-center" required />
+                </div>
+              </div>
+              <div>
+                <label class="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">Descrição</label>
+                <input type="text" name="cat3Desc" value="<%= config.categories[2] ? config.categories[2].description : 'Reportar infrações ou abusos de conduta' %>" class="w-full bg-slate-950 p-2.5 rounded-lg border border-slate-800 text-xs text-slate-200 outline-none" />
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Bloco 4: Design e Imagens do Painel -->
+        <div class="bg-slate-900/60 p-6 rounded-2xl border border-slate-800/80 space-y-5">
+          <h2 class="text-lg font-bold border-b border-slate-800 pb-3 flex items-center gap-2">
+            🎨 Design & Conteúdo do Painel
           </h2>
           <div class="space-y-4">
             <div>
@@ -147,11 +213,11 @@
         </div>
 
         <button type="submit" class="w-full bg-violet-600 hover:bg-violet-500 text-white font-bold py-4 rounded-xl transition-all text-sm shadow-lg shadow-violet-600/20">
-          Salvar Todas as Configurações
+          Salvar Todas as Configurações e Atualizar Discord
         </button>
       </div>
 
-      <!-- Coluna de Prévia Visual (Com Mockup Discord de Banners/Miniaturas) -->
+      <!-- Coluna de Prévia Visual -->
       <div class="lg:col-span-5">
         <div class="sticky top-8 space-y-4">
           <span class="block text-xs font-bold text-slate-400 uppercase tracking-wider">Simulação do Painel no Discord</span>
@@ -174,7 +240,6 @@
                   <div id="previewTitle" class="font-bold text-white text-sm md:text-base break-all pr-4">
                     <%= config.panelEmbed.title %>
                   </div>
-                  <!-- Miniatura em Miniatura -->
                   <img id="previewThumbnail" src="<%= config.panelEmbed.thumbnail || '' %>" class="w-12 h-12 rounded object-cover flex-shrink-0 <%= config.panelEmbed.thumbnail ? '' : 'hidden' %>" />
                 </div>
                 
@@ -182,7 +247,6 @@
                   <%= config.panelEmbed.description %>
                 </div>
 
-                <!-- Banner Principal da Embed -->
                 <img id="previewImage" src="<%= config.panelEmbed.image || '' %>" class="w-full rounded mt-2 object-cover max-h-40 <%= config.panelEmbed.image ? '' : 'hidden' %>" />
               </div>
 
