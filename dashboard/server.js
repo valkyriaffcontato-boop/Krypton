@@ -62,7 +62,11 @@ module.exports = (client) => {
       const guilds = await oauth.getUserGuilds(tokenData.access_token);
 
       req.session.user = user;
-      req.session.guilds = guilds.filter(g => (g.permissions & 0x8) === 0x8); // Filtra apenas administradores
+      
+      // CORREÇÃO: Converte permissões para BigInt para evitar estouro de 32-bits da API do Discord.
+      // Também valida se o usuário é o Dono do servidor (owner).
+      req.session.guilds = guilds.filter(g => g.owner || (BigInt(g.permissions) & 8n) === 8n);
+      
       res.redirect('/dashboard');
     } catch (err) {
       console.error(err);
