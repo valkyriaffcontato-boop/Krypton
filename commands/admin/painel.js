@@ -1,10 +1,10 @@
-const { SlashCommandBuilder, PermissionFlagsBits, EmbedBuilder, ActionRowBuilder, StringSelectMenuBuilder } = require('discord.js');
+const { SlashCommandBuilder, PermissionFlagsBits, EmbedBuilder, ActionRowBuilder, StringSelectMenuBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
 const GuildConfig = require('../../models/GuildConfig');
 
 module.exports = {
   data: new SlashCommandBuilder()
     .setName('painel')
-    .setDescription('Envia o painel de suporte no canal atual')
+    .setDescription('Envia o painel de suporte no canal atual com opção de configuração')
     .setDefaultMemberPermissions(PermissionFlagsBits.Administrator),
 
   async execute(interaction) {
@@ -13,7 +13,7 @@ module.exports = {
 
     const config = await GuildConfig.findOne({ guildId: guild.id });
     if (!config || !config.ticketCategory) {
-      return interaction.editReply({ content: 'Por favor, configure o bot antes usando `/config` ou no dashboard!' });
+      return interaction.editReply({ content: 'Por favor, configure o bot antes acessando o dashboard web ou utilizando o comando `/config`!' });
     }
 
     const embed = new EmbedBuilder()
@@ -24,6 +24,7 @@ module.exports = {
     if (config.panelEmbed.thumbnail) embed.setThumbnail(config.panelEmbed.thumbnail);
     if (config.panelEmbed.image) embed.setImage(config.panelEmbed.image);
 
+    // Seletor de categorias
     const selectMenu = new StringSelectMenuBuilder()
       .setCustomId('ticket_category_select')
       .setPlaceholder('Escolha uma categoria para receber atendimento...')
@@ -36,9 +37,17 @@ module.exports = {
         }))
       );
 
-    const row = new ActionRowBuilder().addComponents(selectMenu);
+    // Botão de acesso rápido à configuração
+    const btnConfig = new ButtonBuilder()
+      .setCustomId('discord_config_panel')
+      .setLabel('Configurar Painel')
+      .setStyle(ButtonStyle.Secondary)
+      .setEmoji('⚙️');
 
-    await channel.send({ embeds: [embed], components: [row] });
+    const rowSelect = new ActionRowBuilder().addComponents(selectMenu);
+    const rowButton = new ActionRowBuilder().addComponents(btnConfig);
+
+    await channel.send({ embeds: [embed], components: [rowSelect, rowButton] });
     return interaction.editReply({ content: 'Painel de suporte enviado com sucesso no canal!' });
   }
 };
