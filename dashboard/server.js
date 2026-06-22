@@ -29,12 +29,15 @@ module.exports = (client) => {
     res.redirect('/');
   }
 
-  // Página Inicial
+  // Página Inicial - Passa o CLIENT_ID para a geração dinâmica do convite
   app.get('/', (req, res) => {
-    res.render('index', { user: req.session.user || null });
+    res.render('index', { 
+      user: req.session.user || null, 
+      clientId: process.env.CLIENT_ID 
+    });
   });
 
-  // Login via OAuth2 Discord - Corrigido para generateAuthUrl
+  // Login via OAuth2 Discord
   app.get('/auth/login', (req, res) => {
     const url = oauth.generateAuthUrl({
       scope: ['identify', 'guilds'],
@@ -43,6 +46,7 @@ module.exports = (client) => {
     res.redirect(url);
   });
 
+  // Callback de autenticação do Discord
   app.get('/auth/callback', async (req, res) => {
     const { code } = req.query;
     if (!code) return res.redirect('/');
@@ -58,7 +62,7 @@ module.exports = (client) => {
       const guilds = await oauth.getUserGuilds(tokenData.access_token);
 
       req.session.user = user;
-      req.session.guilds = guilds.filter(g => (g.permissions & 0x8) === 0x8); // Apenas servidores com permissão de Administrador
+      req.session.guilds = guilds.filter(g => (g.permissions & 0x8) === 0x8); // Filtra apenas administradores
       res.redirect('/dashboard');
     } catch (err) {
       console.error(err);
@@ -66,14 +70,18 @@ module.exports = (client) => {
     }
   });
 
+  // Rota de Logout
   app.get('/auth/logout', (req, res) => {
     req.session.destroy();
     res.redirect('/');
   });
 
-  // Lista de servidores administrados
+  // Painel de Controle - Lista de servidores administrados
   app.get('/dashboard', checkAuth, (req, res) => {
-    res.render('dashboard', { user: req.session.user, guilds: req.session.guilds });
+    res.render('dashboard', { 
+      user: req.session.user, 
+      guilds: req.session.guilds 
+    });
   });
 
   // Configuração específica de servidor
@@ -88,15 +96,20 @@ module.exports = (client) => {
     }
 
     const discordGuild = client.guilds.cache.get(guildId);
-    const channels = discordGuild ? discordGuild.channels.cache.filter(c => c.type === 0 || c.type === 4).map(c => ({ id: c.id, name: c.name, type: c.type })) : [];
-    const roles = discordGuild ? discordGuild.roles.cache.map(r => ({ id: r.id, name: r.name })) : [];
+    const channels = discordGuild 
+      ? discordGuild.channels.cache.filter(c => c.type === 0 || c.type === 4).map(c => ({ id: c.id, name: c.name, type: c.type })) 
+      : [];
+    const roles = discordGuild 
+      ? discordGuild.roles.cache.map(r => ({ id: r.id, name: r.name })) 
+      : [];
 
     res.render('guild', { 
       user: req.session.user, 
       guild: userGuild, 
       config,
       channels,
-      roles
+      roles,
+      query: req.query
     });
   });
 
