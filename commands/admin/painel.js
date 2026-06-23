@@ -1,53 +1,73 @@
-const { SlashCommandBuilder, PermissionFlagsBits, EmbedBuilder, ActionRowBuilder, StringSelectMenuBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
+const { SlashCommandBuilder, PermissionFlagsBits, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
 const GuildConfig = require('../../models/GuildConfig');
 
 module.exports = {
   data: new SlashCommandBuilder()
     .setName('painel')
-    .setDescription('Envia o painel de suporte no canal atual com opção de configuração')
+    .setDescription('Central de gerenciamento e configuração dos tickets (Apenas Administradores)')
     .setDefaultMemberPermissions(PermissionFlagsBits.Administrator),
 
   async execute(interaction) {
     await interaction.deferReply({ ephemeral: true });
-    const { guild, channel } = interaction;
+    const { guild } = interaction;
 
-    const config = await GuildConfig.findOne({ guildId: guild.id });
-    if (!config || !config.ticketCategory) {
-      return interaction.editReply({ content: 'Por favor, configure o bot antes acessando o dashboard web ou utilizando o comando `/config`!' });
+    let config = await GuildConfig.findOne({ guildId: guild.id });
+    if (!config) {
+      config = await GuildConfig.create({ guildId: guild.id });
     }
 
     const embed = new EmbedBuilder()
-      .setTitle(config.panelEmbed.title)
-      .setDescription(config.panelEmbed.description)
-      .setColor(config.panelEmbed.color || '#5865F2');
+      .setTitle('⚙️ Central de Configuração - Krypton')
+      .setDescription('Use os botões interativos abaixo para personalizar a aparência do painel de suporte, editar as categorias ou desativar o sistema.')
+      .addFields(
+        { name: 'Status do Sistema', value: config.active ? '🟢 **ATIVADO**' : '🔴 **DESATIVADO**', inline: true },
+        { name: 'Contador de Tickets', value: `🎫 \`#${String(config.ticketCount || 0).padStart(4, '0')}\``, inline: true },
+        { name: 'Canal de Destino', value: config.panelChannelId ? `<#${config.panelChannelId}>` : '❌ Nenhum canal registrado', inline: true }
+      )
+      .setColor(config.panelEmbed.color || '#5865F2')
+      .setTimestamp();
 
-    if (config.panelEmbed.thumbnail) embed.setThumbnail(config.panelEmbed.thumbnail);
-    if (config.panelEmbed.image) embed.setImage(config.panelEmbed.image);
+    // Linha 1 de botões: Status e Aparência
+    const btnToggle = new ButtonBuilder()
+      .setCustomId('config_toggle_active')
+      .setLabel(config.active ? 'Desativar Tickets' : 'Ativar Tickets')
+      .setStyle(config.active ? ButtonStyle.Danger : ButtonStyle.Success)
+      .setEmoji(config.active ? '🔒' : '🔓');
 
-    // Seletor de categorias
-    const selectMenu = new StringSelectMenuBuilder()
-      .setCustomId('ticket_category_select')
-      .setPlaceholder('Escolha uma categoria para receber atendimento...')
-      .addOptions(
-        config.categories.slice(0, 25).map(cat => ({
-          label: cat.label,
-          description: cat.description || '',
-          value: cat.value,
-          emoji: cat.emoji || undefined
-        }))
-      );
-
-    // Botão de acesso rápido à configuração
-    const btnConfig = new ButtonBuilder()
+    const btnDesign = new ButtonBuilder()
       .setCustomId('discord_config_panel')
-      .setLabel('Configurar Painel')
+      .setLabel('Editar Texto')
+      .setStyle(ButtonStyle.Primary)
+      .setEmoji('✍️');
+
+    const btnImages = new ButtonBuilder()
+      .setCustomId('discord_config_images')
+      .setLabel('Editar Imagens')
+      .setStyle(ButtonStyle.Primary)
+      .setEmoji('🖼️');
+
+    // Linha 2 de botões: Cores, Categorias e Envio
+    const btnColor = new ButtonBuilder()
+      .setCustomId('discord_config_color')
+      .setLabel('Editar Cor')
+      .setStyle(ButtonStyle.Primary)
+      .setEmoji('🌈');
+
+    const btnCategories = new ButtonBuilder()
+      .setCustomId('discord_config_categories')
+      .setLabel('Categorias')
+      .setStyle(ButtonStyle.Primary)
+      .setEmoji('🏷️');
+
+    const btnSendPanel = new ButtonBuilder()
+      .setCustomId('config_send_public_panel')
+      .setLabel('Gerar Painel de Tickets')
       .setStyle(ButtonStyle.Secondary)
-      .setEmoji('⚙️');
+      .setEmoji('📩');
 
-    const rowSelect = new ActionRowBuilder().addComponents(selectMenu);
-    const rowButton = new ActionRowBuilder().addComponents(btnConfig);
+    const row1 = new ActionRowBuilder().addComponents(btnToggle, btnDesign, btnImages);
+    const row2 = new ActionRowBuilder().addComponents(btnColor, btnCategories, btnSendPanel);
 
-    await channel.send({ embeds: [embed], components: [rowSelect, rowButton] });
-    return interaction.editReply({ content: 'Painel de suporte enviado com sucesso no canal!' });
+    return interaction.editReply({ embeds: [embed], components: [row1, row2] });
   }
 };
